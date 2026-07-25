@@ -1,1 +1,17 @@
-/usr/lib/systemd/system/graphical.target
+# A real unit, not the usual symlink to graphical.target.
+#
+# sinit resolves the boot target by name and pulls in whatever is linked into
+# <name>.wants/. Its fragment lookup stats the candidate path, which follows a
+# symlink, so a default.target -> graphical.target link is loaded under the name
+# "default.target" and never recognised as an alias. Enablement is then looked up
+# in a default.target.wants/ that does not exist, and graphical.target.wants/ is
+# never read: no compositor, no greetd, no firmware-probe, no updated.
+#
+# Requires= is read off the fragment and expanded normally, so pulling
+# graphical.target in by dependency gets its .wants/ links loaded under the right
+# name without duplicating them here.
+[Unit]
+Description=Default Target
+Requires=graphical.target
+After=graphical.target
+AllowIsolate=yes
