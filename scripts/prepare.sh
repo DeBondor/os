@@ -61,6 +61,22 @@ endif
 
 $(eval $(meson-package))
 EOF
+
+    # singularity-shell writes org.gnome.desktop.interface accent-color so GTK4/
+    # libadwaita apps follow the desktop accent. That key landed in schemas 47 and
+    # this Buildroot ships 45.0, where a missing key is a fatal g_error inside GIO
+    # (not a catchable GError), so singularity-desktop aborts with 133 the moment
+    # the shell applies its accent, the session supervisor gives up and greetd
+    # drops back to the greeter: a login loop. Bump the package in place.
+    sed -i 's/^GSETTINGS_DESKTOP_SCHEMAS_VERSION_MAJOR = .*/GSETTINGS_DESKTOP_SCHEMAS_VERSION_MAJOR = 48/' \
+        buildroot-src/package/gsettings-desktop-schemas/gsettings-desktop-schemas.mk
+    cat > buildroot-src/package/gsettings-desktop-schemas/gsettings-desktop-schemas.hash <<'EOF'
+# From https://download.gnome.org/sources/gsettings-desktop-schemas/48/gsettings-desktop-schemas-48.0.sha256sum
+sha256  e68f155813bf18f865a8b2c8e9d473588b6ccadcafbb666ab788857c6c2d1bd3  gsettings-desktop-schemas-48.0.tar.xz
+
+# Hash for license file
+sha256  dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551  COPYING
+EOF
 fi
 
 mkdir -p buildroot-build buildroot-dl
