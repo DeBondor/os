@@ -61,11 +61,24 @@ if [ -f "${FW_ROOT_PUB}" ]; then
     # FW_VERIFY_BIN may be pre-set to a known-good build (e.g. when AtomLoops HEAD is
     # mid-refactor); otherwise build it from source.
     if [ -z "${FW_VERIFY_BIN}" ] || [ ! -x "${FW_VERIFY_BIN}" ]; then
-        ( cd "${ATOMLOOPS}" && CGO_ENABLED=0 "${ATOMLOOPS_GO:-go}" build -ldflags '-s -w' \
-            -o "${REPO_DIR}/artifacts/fw-verify" ./cmd/fw-verify )
-        FW_VERIFY_BIN="${REPO_DIR}/artifacts/fw-verify"
+        # Fail soft. build-initramfs.sh already treats a missing verifier as
+        # "no firmware verifier, base firmware only", so an AtomLoops checkout
+        # without cmd/fw-verify (an older tag, a mid-refactor HEAD) is a degraded
+        # image, not a broken build -- but under set -e the bare go build aborted
+        # the whole run on `stat .../cmd/fw-verify: directory not found`, after
+        # the erofs, the verity tree and the UKI were already done.
+        if ( cd "${ATOMLOOPS}" && CGO_ENABLED=0 "${ATOMLOOPS_GO:-go}" build -ldflags '-s -w' \
+                -o "${REPO_DIR}/artifacts/fw-verify" ./cmd/fw-verify ); then
+            FW_VERIFY_BIN="${REPO_DIR}/artifacts/fw-verify"
+        else
+            echo "package: warn: cannot build fw-verify from ${ATOMLOOPS}" >&2
+            echo "package: warn: shipping base survival firmware, no firmware add-on verification" >&2
+            FW_VERIFY_BIN=
+        fi
     fi
-    export FW_VERIFY_BIN FW_ROOT_PUB
+    if [ -n "${FW_VERIFY_BIN}" ]; then
+        export FW_VERIFY_BIN FW_ROOT_PUB
+    fi
 fi
 
 # Initramfs: the dm-verity aware init that waits for the kernel-created
