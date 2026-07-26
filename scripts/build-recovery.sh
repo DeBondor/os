@@ -13,8 +13,12 @@ set -eu
 REPO_DIR="$(pwd)"
 TARGET_DIR="${TARGET_DIR:-buildroot-build/target}"
 KERNEL="${KERNEL:-buildroot-build/images/bzImage}"
-ATOMLOOPS="${ATOMLOOPS:-/home/mirko/Projects/personal/AtomLoops}"
-SINTY_RECOVERY="${SINTY_RECOVERY:-/home/mirko/Projects/personal/sinty-recovery}"
+# Sibling checkouts by default (package.sh exports these when it calls us; the defaults
+# are for a standalone run). Not one developer's home path: a clean clone used to fail
+# here with a bare `cd: No such file or directory`.
+SIBLING_DIR="$(dirname "$REPO_DIR")"
+ATOMLOOPS="${ATOMLOOPS:-$SIBLING_DIR/AtomLoops}"
+SINTY_RECOVERY="${SINTY_RECOVERY:-$SIBLING_DIR/sinty-recovery}"
 STUB="${STUB:-$(ls /usr/lib/systemd/boot/efi/linuxx64.efi.stub 2>/dev/null || echo "$TARGET_DIR/usr/lib/systemd/boot/efi/linuxx64.efi.stub")}"
 OUT="artifacts/kernelcache-recovery.efi"
 WORK="$(mktemp -d)"

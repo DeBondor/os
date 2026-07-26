@@ -5,6 +5,25 @@ set -e
 REPO_DIR="$(pwd)"
 mkdir -p artifacts
 
+# External repos this build needs, resolved once here rather than at each use site.
+# Default to sibling checkouts next to this one, which is what cloning all three into
+# the same directory gives you. The old defaults were one developer's absolute home
+# path, so a clean clone died deep inside the run with a bare
+#   ./scripts/package.sh: line 107: cd: /home/mirko/...: No such file or directory
+# minutes in, with nothing saying an external repo was needed at all.
+SIBLING_DIR="$(dirname "$REPO_DIR")"
+ATOMLOOPS="${ATOMLOOPS:-$SIBLING_DIR/AtomLoops}"
+SINTY_RECOVERY="${SINTY_RECOVERY:-$SIBLING_DIR/sinty-recovery}"
+need_repo() { # $1 path  $2 var name  $3 what it is
+    [ -d "$1" ] && return 0
+    echo "package: $3 checkout not found at $1" >&2
+    echo "package: clone it next to this repo or set $2=/path/to/it" >&2
+    exit 1
+}
+need_repo "$ATOMLOOPS" ATOMLOOPS AtomLoops
+need_repo "$SINTY_RECOVERY" SINTY_RECOVERY sinty-recovery
+export ATOMLOOPS SINTY_RECOVERY
+
 # RootFS
 ROOTFS_TAR=artifacts/rootfs.tar
 bzcat buildroot-build/images/rootfs.tar.bz2 > "$ROOTFS_TAR"
@@ -35,7 +54,6 @@ fi
 # time, so an OTA could never update it. Instead the initramfs re-verifies the release-
 # signed anchor beside the image (root pubkey -> signing cert -> manifest) and opens
 # dm-verity with the hash it extracts. Absent verifier/anchor -> base survival firmware.
-ATOMLOOPS="${ATOMLOOPS:-/home/mirko/Projects/personal/AtomLoops}"
 # FW_ROOT_PUB may be pre-set (e.g. a test trust root for a VM trial); default to the
 # release root the loader verifies the UKI with.
 : "${FW_ROOT_PUB:=${ATOMLOOPS}/loader/src/root.pub}"
@@ -103,7 +121,6 @@ mkfs.fat -F 32 -n SINGEFI artifacts/esp.vfat >/dev/null
 # Atom Loops loader is BOOTX64.EFI; it verifies + chainloads the signed UKI slot.
 # (Test root key is a throwaway generated into loader/src/root.pub; the RC root key
 # is Mirko's cold offline key.)
-ATOMLOOPS="${ATOMLOOPS:-/home/mirko/Projects/personal/AtomLoops}"
 ( cd "${ATOMLOOPS}" && "${ATOMLOOPS_GO:-go}" run ./cmd/atom-sign sign \
     --manifest "${REPO_DIR}/artifacts/kernelcache.efi" --priv signing-v1.key )
 mmd -i artifacts/esp.vfat ::EFI ::EFI/BOOT ::EFI/atom
